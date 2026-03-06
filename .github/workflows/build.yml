@@ -15,6 +15,7 @@ env:
 
 jobs:
     Build:
+        if: github.repository == 'Vendicated/Vencord'
         runs-on: ubuntu-latest
 
         steps:
