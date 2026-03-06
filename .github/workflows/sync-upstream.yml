@@ -1,0 +1,59 @@
+name: Sync with Upstream Vencord
+
+on:
+  schedule:
+    # Runs daily at 04:00 UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/Vendicated/Vencord.git || true
+          git fetch upstream main
+
+      - name: Attempt merge
+        id: merge
+        run: |
+          git merge upstream/main --no-edit || echo "CONFLICT=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push if clean merge
+        if: steps.merge.outputs.CONFLICT != 'true'
+        run: |
+          git push origin main
+
+      - name: Create PR on conflict
+        if: steps.merge.outputs.CONFLICT == 'true'
+        run: |
+          BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
+          git merge --abort
+          git checkout -b "$BRANCH"
+          git merge upstream/main --no-edit || true
+          git add -A
+          git commit -m "chore: merge upstream Vencord (conflict)" || true
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "Upstream sync conflict - $(date +%Y-%m-%d)" \
+            --body "Automatic upstream sync encountered merge conflicts. Please resolve manually and ensure the completeDiscordQuest plugin files are preserved." \
+            --base main \
+            --head "$BRANCH"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
