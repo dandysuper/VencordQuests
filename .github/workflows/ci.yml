@@ -17,5 +17,21 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - name: Hello
-              run: echo "CI is working"
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v3
+
+            - name: Use Node.js 20
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: "pnpm"
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build & Lint & Type-check
+              run: pnpm test
+
+            - name: Test web build
+              run: pnpm buildWeb
