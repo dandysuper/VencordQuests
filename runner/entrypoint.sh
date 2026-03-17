@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+echo "=== Environment Debug ==="
+echo "REPO_URL=${REPO_URL}"
+echo "ACCESS_TOKEN length=${#ACCESS_TOKEN}"
+echo "RUNNER_NAME=${RUNNER_NAME}"
+echo "========================="
+
 REPO_URL="${REPO_URL}"
 ACCESS_TOKEN="${ACCESS_TOKEN}"
 RUNNER_NAME="${RUNNER_NAME:-railway-runner}"
@@ -9,6 +15,8 @@ LABELS="${LABELS:-self-hosted}"
 
 if [[ -z "$REPO_URL" ]] || [[ -z "$ACCESS_TOKEN" ]]; then
   echo "ERROR: REPO_URL and ACCESS_TOKEN are required"
+  echo "Available env vars:"
+  env | grep -v "TOKEN\|SECRET" | sort
   exit 1
 fi
 
