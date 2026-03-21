@@ -1,10 +1,10 @@
+import { Devs } from "@utils/constants";
 /*
  * Vencord, a Discord client mod
  * Copyright (c) 2025 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { Devs } from "@utils/constants";
 import definePlugin from "@utils/types";
 import { findByCodeLazy, findByPropsLazy } from "@webpack";
 import { FluxDispatcher, RestAPI } from "@webpack/common";
@@ -27,7 +27,10 @@ const fakeApplications = new Map();
 export default definePlugin({
     name: "CompleteDiscordQuest",
     description: "A plugin that completes multiple discord quests in background simultaneously.",
-    authors: [Devs.nicola02nb],
+    authors: [{
+        name: "nicola02nb",
+        id: 257900031351193600n
+    }],
     settings,
     patches: [
         {
@@ -164,6 +167,9 @@ function updateQuests() {
             completeQuest(quest);
         }
     }
+    /* console.log("Available quests updated:", availableQuests);
+    console.log("Acceptable quests updated:", acceptableQuests);
+    console.log("Completable quests updated:", completableQuests); */
 }
 
 function acceptQuest(quest: QuestValue) {
@@ -219,7 +225,7 @@ function completeQuest(quest: QuestValue) {
 
         switch (taskName) {
             case "WATCH_VIDEO":
-            case "WATCH_VIDEO_ON_MOBILE": {
+            case "WATCH_VIDEO_ON_MOBILE":
                 const maxFuture = 10, speed = 7, interval = 1;
                 const enrolledAt = new Date(quest.userStatus.enrolledAt).getTime();
                 let completed = false;
@@ -255,12 +261,11 @@ function completeQuest(quest: QuestValue) {
                 watchVideo();
                 console.log(`Spoofing video for ${questName}.`);
                 break;
-            }
 
-            case "PLAY_ON_DESKTOP": {
+            case "PLAY_ON_DESKTOP":
                 RestAPI.get({ url: `/applications/public?application_ids=${applicationId}` }).then(res => {
                     const appData = res.body[0];
-                    const exeName = appData.executables?.find(x => x.os === "win32")?.name?.replace(">", "") ?? appData.name.replace(/[/\\:*?"<>|]/g, "");
+                    const exeName = appData.executables?.find(x => x.os === "win32")?.name?.replace(">","") ?? appData.name.replace(/[\/\\:*?"<>|]/g, "");
 
                     const fakeGame = {
                         cmdLine: `C:\\Program Files\\${appData.name}\\${exeName}`,
@@ -305,9 +310,8 @@ function completeQuest(quest: QuestValue) {
                     console.log(`Spoofed your game to ${applicationName}. Wait for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`);
                 });
                 break;
-            }
 
-            case "STREAM_ON_DESKTOP": {
+            case "STREAM_ON_DESKTOP":
                 const fakeApp = {
                     id: applicationId,
                     name: `FakeApp ${applicationName} (CompleteDiscordQuest)`,
@@ -338,9 +342,8 @@ function completeQuest(quest: QuestValue) {
                 console.log(`Spoofed your stream to ${applicationName}. Stream any window in vc for ${Math.ceil((secondsNeeded - secondsDone) / 60)} more minutes.`);
                 console.log("Remember that you need at least 1 other person to be in the vc!");
                 break;
-            }
 
-            case "PLAY_ACTIVITY": {
+            case "PLAY_ACTIVITY":
                 const channelId = ChannelStore.getSortedPrivateChannels()[0]?.id ?? Object.values(GuildChannelStore.getAllGuilds()).find(x => x != null && x.VOCAL.length > 0).VOCAL[0].channel.id;
                 const streamKey = `call:${channelId}:1`;
 
@@ -368,7 +371,6 @@ function completeQuest(quest: QuestValue) {
                 };
                 playActivity();
                 break;
-            }
 
             default:
                 console.error("Unknown task type:", taskName);
