@@ -23,8 +23,17 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile --network-concurrency 1 --store-dir /opt/pnpm-store
 
-            - name: Build & Lint & Type-check
-              run: pnpm test
+            - name: Build standalone
+              run: pnpm buildStandalone
 
-            - name: Test web build
-              run: pnpm buildWeb --no-bundle-buddy
+            - name: Lint
+              run: pnpm lint
+
+            - name: Lint styles
+              run: pnpm lint-styles
+
+            - name: Generate plugin JSON
+              run: pnpm generatePluginJson
+
+            - name: Build web
+              run: pnpm buildWeb
