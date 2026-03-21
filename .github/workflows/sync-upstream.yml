@@ -8,6 +8,7 @@ on:
 permissions:
     contents: write
     pull-requests: write
+    workflows: write
 
 jobs:
     sync:
@@ -17,7 +18,7 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-                  token: ${{ secrets.GITHUB_TOKEN }}
+                  token: ${{ secrets.ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
 
             - name: Configure git
               run: |
@@ -27,7 +28,9 @@ jobs:
             - name: Save custom plugin files
               run: |
                   mkdir -p /tmp/plugin-backup
-                  cp -r src/plugins/completeDiscordQuest /tmp/plugin-backup/
+                  if [ -d src/plugins/completeDiscordQuest ]; then
+                    cp -r src/plugins/completeDiscordQuest /tmp/plugin-backup/
+                  fi
 
             - name: Add upstream remote
               run: |
@@ -54,10 +57,12 @@ jobs:
             - name: Restore custom plugin after merge
               if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.CONFLICT != 'true'
               run: |
-                  cp -r /tmp/plugin-backup/completeDiscordQuest src/plugins/
-                  if ! git diff --quiet src/plugins/completeDiscordQuest; then
-                    git add src/plugins/completeDiscordQuest
-                    git commit -m "chore: restore completeDiscordQuest plugin after upstream merge" --no-edit || true
+                  if [ -d /tmp/plugin-backup/completeDiscordQuest ]; then
+                    cp -r /tmp/plugin-backup/completeDiscordQuest src/plugins/
+                    if ! git diff --quiet src/plugins/completeDiscordQuest; then
+                      git add src/plugins/completeDiscordQuest
+                      git commit -m "chore: restore completeDiscordQuest plugin after upstream merge" --no-edit || true
+                    fi
                   fi
 
             - name: Push if clean merge
@@ -71,7 +76,9 @@ jobs:
                   git merge --abort
                   git checkout -b "$BRANCH"
                   git merge upstream/main --no-edit || true
-                  cp -r /tmp/plugin-backup/completeDiscordQuest src/plugins/
+                  if [ -d /tmp/plugin-backup/completeDiscordQuest ]; then
+                    cp -r /tmp/plugin-backup/completeDiscordQuest src/plugins/
+                  fi
                   git add -A
                   git commit -m "chore: merge upstream Vencord with completeDiscordQuest plugin" || true
                   git push origin "$BRANCH"
@@ -81,4 +88,4 @@ jobs:
                     --base main \
                     --head "$BRANCH"
               env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GH_TOKEN: ${{ secrets.ACCESS_TOKEN || secrets.GITHUB_TOKEN }}

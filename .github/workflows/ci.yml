@@ -11,6 +11,7 @@ on:
 
 env:
     FORCE_COLOR: true
+    NODE_OPTIONS: "--max-old-space-size=3072"
 
 jobs:
     test:

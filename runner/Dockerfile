@@ -9,12 +9,15 @@ RUN apt-get update && apt-get install -y \
     tar \
     sudo \
     ca-certificates \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install Node.js 20 from NodeSource (Ubuntu 22.04 repos ship Node 12)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pnpm via corepack (lighter than npm install -g)
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Create runner user
 RUN useradd -m runner && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
