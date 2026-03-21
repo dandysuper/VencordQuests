@@ -1,4 +1,4 @@
-name: Sync with Upstream Vencord
+name: Sync with Upstream Vencord & Quest Plugin
 
 on:
     schedule:
@@ -17,74 +17,162 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-                  token: ${{ secrets.ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+                  token: ${{ secrets.ACCESS_TOKEN }}
 
             - name: Configure git
               run: |
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            - name: Save custom plugin files
+            # ── Step 1: Sync upstream Vencord ──
+            - name: Fetch upstream Vencord
+              run: |
+                  git remote add upstream https://github.com/Vendicated/Vencord.git || true
+                  git fetch upstream main
+
+            - name: Check if Vencord is up to date
+              id: vencord
+              run: |
+                  UPSTREAM_SHA=$(git rev-parse upstream/main)
+                  MERGE_BASE=$(git merge-base HEAD upstream/main)
+                  if [ "$MERGE_BASE" = "$UPSTREAM_SHA" ]; then
+                    echo "changed=false" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "changed=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Save plugin before Vencord merge
+              if: steps.vencord.outputs.changed == 'true'
               run: |
                   mkdir -p /tmp/plugin-backup
                   if [ -d src/plugins/completeDiscordQuest ]; then
                     cp -r src/plugins/completeDiscordQuest /tmp/plugin-backup/
                   fi
 
-            - name: Add upstream remote
+            - name: Merge upstream Vencord
+              if: steps.vencord.outputs.changed == 'true'
+              id: vencord_merge
               run: |
-                  git remote add upstream https://github.com/Vendicated/Vencord.git || true
-                  git fetch upstream main
-
-            - name: Check if already up to date
-              id: check
-              run: |
-                  UPSTREAM_SHA=$(git rev-parse upstream/main)
-                  MERGE_BASE=$(git merge-base HEAD upstream/main)
-                  if [ "$MERGE_BASE" = "$UPSTREAM_SHA" ]; then
-                    echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+                  if git merge upstream/main --no-edit; then
+                    echo "conflict=false" >> "$GITHUB_OUTPUT"
                   else
-                    echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+                    echo "conflict=true" >> "$GITHUB_OUTPUT"
                   fi
 
-            - name: Attempt merge
-              if: steps.check.outputs.up_to_date == 'false'
-              id: merge
-              run: |
-                  git merge upstream/main --no-edit || echo "CONFLICT=true" >> "$GITHUB_OUTPUT"
-
-            - name: Restore custom plugin after merge
-              if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.CONFLICT != 'true'
+            - name: Restore plugin after Vencord merge
+              if: steps.vencord.outputs.changed == 'true' && steps.vencord_merge.outputs.conflict == 'false'
               run: |
                   if [ -d /tmp/plugin-backup/completeDiscordQuest ]; then
                     cp -r /tmp/plugin-backup/completeDiscordQuest src/plugins/
                     if ! git diff --quiet src/plugins/completeDiscordQuest; then
                       git add src/plugins/completeDiscordQuest
-                      git commit -m "chore: restore completeDiscordQuest plugin after upstream merge" --no-edit || true
+                      git commit -m "chore: restore completeDiscordQuest after upstream merge" || true
                     fi
                   fi
 
-            - name: Push if clean merge
-              if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.CONFLICT != 'true'
-              run: git push origin main
-
-            - name: Create PR on conflict
-              if: steps.check.outputs.up_to_date == 'false' && steps.merge.outputs.CONFLICT == 'true'
+            - name: Handle Vencord merge conflict
+              if: steps.vencord.outputs.changed == 'true' && steps.vencord_merge.outputs.conflict == 'true'
               run: |
-                  BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
                   git merge --abort
+                  BRANCH="sync/upstream-$(date +%Y%m%d-%H%M%S)"
                   git checkout -b "$BRANCH"
                   git merge upstream/main --no-edit || true
                   if [ -d /tmp/plugin-backup/completeDiscordQuest ]; then
                     cp -r /tmp/plugin-backup/completeDiscordQuest src/plugins/
                   fi
                   git add -A
-                  git commit -m "chore: merge upstream Vencord with completeDiscordQuest plugin" || true
+                  git commit -m "chore: merge upstream Vencord (conflicts)" || true
                   git push origin "$BRANCH"
                   gh pr create \
                     --title "Upstream sync conflict - $(date +%Y-%m-%d)" \
-                    --body "Automatic upstream sync encountered merge conflicts. The completeDiscordQuest plugin files have been preserved. Please resolve remaining conflicts manually." \
-                    --base main \
-                    --head "$BRANCH"
+                    --body "Automatic upstream sync hit merge conflicts. Please resolve manually." \
+                    --base main --head "$BRANCH"
+                  echo "⚠️ Created PR for conflict resolution, skipping plugin sync"
+                  exit 1
               env:
-                  GH_TOKEN: ${{ secrets.ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+                  GH_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+
+            # ── Step 2: Sync completeDiscordQuest plugin ──
+            - name: Fetch latest quest plugin
+              run: |
+                  rm -rf /tmp/quest-plugin
+                  git clone --depth 1 https://github.com/nicola02nb/completeDiscordQuest.git /tmp/quest-plugin
+
+            - name: Check for plugin changes
+              id: plugin
+              run: |
+                  PLUGIN_DIR="src/plugins/completeDiscordQuest"
+                  CHANGED=false
+
+                  # Compare each source file from the plugin repo
+                  for file in index.tsx settings.ts stores.ts \
+                              components/QuestButton.tsx components/QuestButton.css \
+                              types/stores.d.ts types/queststore.d.ts types/guildchannelstore.d.ts; do
+                    if [ -f "/tmp/quest-plugin/$file" ]; then
+                      # Skip author-line differences (Devs.nicola02nb vs inline)
+                      # and import-path differences (relative vs absolute)
+                      LOCAL="$PLUGIN_DIR/$file"
+                      REMOTE="/tmp/quest-plugin/$file"
+                      if [ -f "$LOCAL" ]; then
+                        # Compare ignoring known integration differences
+                        DIFF=$(diff <(grep -v 'authors:' "$LOCAL" | grep -v '@plugins/completeDiscordQuest/' | grep -v 'from "\.\./' ) \
+                                    <(grep -v 'authors:' "$REMOTE" | grep -v '@plugins/completeDiscordQuest/' | grep -v 'from "\.\./' ) || true)
+                        if [ -n "$DIFF" ]; then
+                          CHANGED=true
+                          echo "Changed: $file"
+                        fi
+                      else
+                        CHANGED=true
+                        echo "New file: $file"
+                      fi
+                    fi
+                  done
+
+                  # Check for new files in the plugin repo we don't have
+                  cd /tmp/quest-plugin
+                  for file in $(find . -type f -name '*.ts' -o -name '*.tsx' -o -name '*.css' | sed 's|^\./||'); do
+                    if [ ! -f "$GITHUB_WORKSPACE/$PLUGIN_DIR/$file" ]; then
+                      CHANGED=true
+                      echo "New file from plugin: $file"
+                    fi
+                  done
+
+                  echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
+
+            - name: Update plugin files
+              if: steps.plugin.outputs.changed == 'true'
+              run: |
+                  PLUGIN_DIR="src/plugins/completeDiscordQuest"
+
+                  # Copy all source files, preserving directory structure
+                  cd /tmp/quest-plugin
+                  for file in $(find . -type f -name '*.ts' -o -name '*.tsx' -o -name '*.css' -o -name '*.d.ts' | sed 's|^\./||'); do
+                    mkdir -p "$GITHUB_WORKSPACE/$PLUGIN_DIR/$(dirname "$file")"
+                    cp "$file" "$GITHUB_WORKSPACE/$PLUGIN_DIR/$file"
+                  done
+
+                  cd "$GITHUB_WORKSPACE"
+
+                  # Fix integration-specific differences:
+                  # 1. Use Devs constant instead of inline author
+                  sed -i 's|authors: \[{ name: "nicola02nb", id: [0-9n]*n\? }\]|authors: [Devs.nicola02nb]|' "$PLUGIN_DIR/index.tsx"
+
+                  # 2. Ensure Devs import exists
+                  if ! grep -q 'import { Devs }' "$PLUGIN_DIR/index.tsx"; then
+                    sed -i '1s|^|import { Devs } from "@utils/constants";\n|' "$PLUGIN_DIR/index.tsx"
+                  fi
+
+                  # 3. Fix relative imports in QuestButton to absolute plugin path
+                  sed -i 's|from "\.\./stores"|from "@plugins/completeDiscordQuest/stores"|' "$PLUGIN_DIR/components/QuestButton.tsx"
+                  sed -i 's|from "\.\./settings"|from "@plugins/completeDiscordQuest/settings"|' "$PLUGIN_DIR/components/QuestButton.tsx"
+
+                  # Commit if anything changed
+                  git add "$PLUGIN_DIR"
+                  if ! git diff --cached --quiet; then
+                    git commit -m "chore: sync completeDiscordQuest plugin from nicola02nb"
+                  fi
+
+            # ── Step 3: Push ──
+            - name: Push changes
+              if: steps.vencord.outputs.changed == 'true' || steps.plugin.outputs.changed == 'true'
+              run: git push origin main
