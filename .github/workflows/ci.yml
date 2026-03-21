@@ -11,7 +11,7 @@ on:
 
 env:
     FORCE_COLOR: true
-    NODE_OPTIONS: "--max-old-space-size=2048"
+    NODE_OPTIONS: "--max-old-space-size=1536"
 
 jobs:
     test:
@@ -21,22 +21,13 @@ jobs:
             - uses: actions/checkout@v4
 
             - name: Install dependencies
-              run: |
-                  export PNPM_HOME="/home/runner/.local/share/pnpm"
-                  export PATH="$PNPM_HOME:$PATH"
-                  pnpm install --frozen-lockfile
+              run: pnpm install --frozen-lockfile --network-concurrency 1
               env:
-                  # Reduce pnpm concurrency to lower peak memory usage
-                  PNPM_WORKERS: 2
+                  # Limit child processes to reduce peak memory
+                  PNPM_WORKERS: 1
 
             - name: Build & Lint & Type-check
-              run: |
-                  export PNPM_HOME="/home/runner/.local/share/pnpm"
-                  export PATH="$PNPM_HOME:$PATH"
-                  pnpm test
+              run: pnpm test
 
             - name: Test web build
-              run: |
-                  export PNPM_HOME="/home/runner/.local/share/pnpm"
-                  export PATH="$PNPM_HOME:$PATH"
-                  pnpm buildWeb
+              run: pnpm buildWeb --no-bundle-buddy

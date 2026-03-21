@@ -11,18 +11,16 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20 from NodeSource (Ubuntu 22.04 repos ship Node 12)
+# Install Node.js 20 from NodeSource
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm via corepack (lighter than npm install -g)
+# Install pnpm via corepack (creates shim at /usr/local/bin/pnpm)
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Set environment for all processes (including GitHub Actions steps)
-ENV PNPM_HOME="/usr/local/share/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-ENV NODE_OPTIONS="--max-old-space-size=2048"
+# Constrain Node.js heap for low-memory Railway instances
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 
 # Create runner user
 RUN useradd -m runner && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
