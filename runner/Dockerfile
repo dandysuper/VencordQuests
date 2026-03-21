@@ -19,6 +19,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # Install pnpm via corepack (lighter than npm install -g)
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
+# Set environment for all processes (including GitHub Actions steps)
+ENV PNPM_HOME="/usr/local/share/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
 # Create runner user
 RUN useradd -m runner && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 

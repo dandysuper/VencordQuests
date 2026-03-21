@@ -11,7 +11,7 @@ on:
 
 env:
     FORCE_COLOR: true
-    NODE_OPTIONS: "--max-old-space-size=3072"
+    NODE_OPTIONS: "--max-old-space-size=2048"
 
 jobs:
     test:
@@ -20,19 +20,23 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - uses: pnpm/action-setup@v3
-
-            - name: Use Node.js 20
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 20
-                  cache: "pnpm"
-
             - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+              run: |
+                  export PNPM_HOME="/home/runner/.local/share/pnpm"
+                  export PATH="$PNPM_HOME:$PATH"
+                  pnpm install --frozen-lockfile
+              env:
+                  # Reduce pnpm concurrency to lower peak memory usage
+                  PNPM_WORKERS: 2
 
             - name: Build & Lint & Type-check
-              run: pnpm test
+              run: |
+                  export PNPM_HOME="/home/runner/.local/share/pnpm"
+                  export PATH="$PNPM_HOME:$PATH"
+                  pnpm test
 
             - name: Test web build
-              run: pnpm buildWeb
+              run: |
+                  export PNPM_HOME="/home/runner/.local/share/pnpm"
+                  export PATH="$PNPM_HOME:$PATH"
+                  pnpm buildWeb
