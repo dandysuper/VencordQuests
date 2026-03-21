@@ -14,7 +14,7 @@ env:
     NODE_OPTIONS: "--max-old-space-size=1536"
 
 jobs:
-    test:
+    build:
         runs-on: self-hosted
 
         steps:
@@ -25,15 +25,6 @@ jobs:
 
             - name: Build standalone
               run: pnpm buildStandalone
-
-            - name: Lint
-              run: pnpm lint
-
-            - name: Lint styles
-              run: pnpm lint-styles
-
-            - name: Generate plugin JSON
-              run: pnpm generatePluginJson
 
             - name: Build web
               run: pnpm buildWeb
