@@ -159,9 +159,20 @@ jobs:
                     sed -i '1i\/*\n * Vencord, a Discord client mod\n * Copyright (c) 2025 Vendicated and contributors\n * SPDX-License-Identifier: GPL-3.0-or-later\n */\n' "$PLUGIN_DIR/index.tsx"
                   fi
 
-                  # 2. Fix relative imports in QuestButton to absolute plugin path
+                  # 2. Use Devs.nicola02nb instead of inline author (Vencord plugin validator requires property access)
+                  sed -i '/authors: \[{/,/}\]/c\    authors: [Devs.nicola02nb],' "$PLUGIN_DIR/index.tsx"
+
+                  # 3. Ensure Devs import exists (sorted alphabetically with other @utils imports)
+                  if ! grep -q 'import { Devs }' "$PLUGIN_DIR/index.tsx"; then
+                    sed -i '/^import.*@utils/i\import { Devs } from "@utils/constants";' "$PLUGIN_DIR/index.tsx"
+                  fi
+
+                  # 4. Fix relative imports in QuestButton to absolute plugin path
                   sed -i 's|from "\.\./stores"|from "@plugins/completeDiscordQuest/stores"|' "$PLUGIN_DIR/components/QuestButton.tsx"
                   sed -i 's|from "\.\./settings"|from "@plugins/completeDiscordQuest/settings"|' "$PLUGIN_DIR/components/QuestButton.tsx"
+
+                  # 5. Run eslint autofix for import sorting
+                  npx eslint --fix "$PLUGIN_DIR/" 2>/dev/null || true
 
                   # Commit if anything changed
                   git add "$PLUGIN_DIR"
