@@ -20,8 +20,15 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile --network-concurrency 1 --store-dir /opt/pnpm-store
+            - name: Restore cached node_modules
+              run: |
+                  if [ -d /opt/vencord-deps/node_modules ]; then
+                    cp -al /opt/vencord-deps/node_modules ./node_modules
+                    echo "Restored node_modules from pre-built image cache"
+                  else
+                    echo "No cached node_modules found, running pnpm install"
+                    pnpm install --frozen-lockfile --network-concurrency 1
+                  fi
 
             - name: Build standalone
               run: pnpm buildStandalone

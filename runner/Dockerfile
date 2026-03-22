@@ -22,23 +22,18 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # Constrain Node.js heap for low-memory Railway instances
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 
-# Use a fixed pnpm store location that persists between build and runtime
-ENV PNPM_STORE_DIR="/opt/pnpm-store"
-RUN mkdir -p /opt/pnpm-store
-
-# Pre-warm pnpm store with Vencord dependencies at build time (more memory
-# available during Docker build than at runtime). This way, CI `pnpm install`
-# only hard-links from the store instead of downloading 580 packages.
-RUN cd /tmp && git clone --depth 1 https://github.com/Vendicated/Vencord.git vencord-cache \
-    && cd vencord-cache \
-    && pnpm install --frozen-lockfile --network-concurrency 1 --store-dir /opt/pnpm-store \
-    && rm -rf /tmp/vencord-cache
+# Pre-install Vencord dependencies at build time (Docker build has more RAM).
+# Keep node_modules at /opt/vencord-deps so CI can rsync instead of pnpm install.
+RUN git clone --depth 1 https://github.com/Vendicated/Vencord.git /opt/vencord-deps \
+    && cd /opt/vencord-deps \
+    && pnpm install --frozen-lockfile --network-concurrency 1 \
+    && rm -rf .git
 
 # Create runner user
 RUN useradd -m runner && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Give runner user access to the pnpm store
-RUN chown -R runner:runner /opt/pnpm-store
+# Give runner user access to the pre-built deps
+RUN chown -R runner:runner /opt/vencord-deps
 
 WORKDIR /home/runner
 
