@@ -154,15 +154,12 @@ jobs:
                   cd "$GITHUB_WORKSPACE"
 
                   # Fix integration-specific differences:
-                  # 1. Use Devs constant instead of inline author
-                  sed -i 's|authors: \[{ name: "nicola02nb", id: [0-9n]*n\? }\]|authors: [Devs.nicola02nb]|' "$PLUGIN_DIR/index.tsx"
-
-                  # 2. Ensure Devs import exists
-                  if ! grep -q 'import { Devs }' "$PLUGIN_DIR/index.tsx"; then
-                    sed -i '1s|^|import { Devs } from "@utils/constants";\n|' "$PLUGIN_DIR/index.tsx"
+                  # 1. Ensure license header exists at top of index.tsx
+                  if ! head -1 "$PLUGIN_DIR/index.tsx" | grep -q '^\(/\*\|// \)'; then
+                    sed -i '1i\/*\n * Vencord, a Discord client mod\n * Copyright (c) 2025 Vendicated and contributors\n * SPDX-License-Identifier: GPL-3.0-or-later\n */\n' "$PLUGIN_DIR/index.tsx"
                   fi
 
-                  # 3. Fix relative imports in QuestButton to absolute plugin path
+                  # 2. Fix relative imports in QuestButton to absolute plugin path
                   sed -i 's|from "\.\./stores"|from "@plugins/completeDiscordQuest/stores"|' "$PLUGIN_DIR/components/QuestButton.tsx"
                   sed -i 's|from "\.\./settings"|from "@plugins/completeDiscordQuest/settings"|' "$PLUGIN_DIR/components/QuestButton.tsx"
 
