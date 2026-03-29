@@ -51,6 +51,206 @@ This fork automatically syncs with [Vendicated/Vencord](https://github.com/Vendi
 
 ---
 
+## 🛠️ How to Build & Inject VencordQuests
+
+This guide walks you through cloning this fork, building it from source, and injecting it into your Discord desktop app — so you get the **CompleteDiscordQuest** plugin working.
+
+---
+
+### Prerequisites
+
+Make sure you have the following installed before you start:
+
+| Tool | Version | Download |
+|------|---------|----------|
+| **Node.js** | ≥ 18 | https://nodejs.org |
+| **pnpm** | ≥ 9 | `npm install -g pnpm` |
+| **Git** | any | https://git-scm.com |
+| **Discord Desktop** | any branch (Stable / Canary / PTB) | https://discord.com/download |
+
+> **Windows users:** Use PowerShell or Git Bash. Make sure Node.js is in your PATH.  
+> **macOS users:** You may need to allow the installer through Gatekeeper (see Step 4).  
+> **Linux users:** Make sure Discord is installed as a `.deb`, `.tar.gz`, or via your package manager — **not** as a Flatpak/Snap, which are unsupported.
+
+---
+
+### Step 1 — Clone this repository
+
+```bash
+git clone https://github.com/dandysuper/VencordQuests.git
+cd VencordQuests
+```
+
+---
+
+### Step 2 — Install dependencies
+
+```bash
+pnpm install --frozen-lockfile
+```
+
+This installs all required packages. The `--frozen-lockfile` flag ensures you use the exact same dependency versions used by this project.
+
+---
+
+### Step 3 — Build the project
+
+```bash
+pnpm build
+```
+
+This compiles the TypeScript source and bundles everything into the `dist/` folder using esbuild. You should see output like:
+
+```
+[BUILD] dist/browser.js
+[BUILD] dist/patcher.js
+[BUILD] dist/preload.js
+[BUILD] dist/renderer.js
+```
+
+> **Optional — build for browser extension / UserScript:**
+> ```bash
+> pnpm buildWeb
+> ```
+> This produces the browser extension artifacts in `dist/` as well.
+
+---
+
+### Step 4 — Inject into Discord
+
+Injecting patches VencordQuests into your Discord installation so it loads on startup.
+
+```bash
+pnpm inject
+```
+
+The script downloads the official Vencord Installer binary and runs it pointing at your locally-built `dist/` folder.
+
+**What happens platform by platform:**
+
+#### 🪟 Windows
+- The installer opens a GUI window.
+- Select your Discord installation (Stable / Canary / PTB).
+- Click **Install**.
+
+#### 🍎 macOS
+- The installer binary is downloaded and unzipped automatically.
+- If macOS blocks it with *"cannot be opened because the developer cannot be verified"*, run:
+  ```bash
+  xattr -cr /tmp/VencordInstaller
+  ```
+  Then re-run `pnpm inject`.
+- The installer GUI will open — select your Discord and click **Install**.
+
+#### 🐧 Linux
+- The installer runs in your terminal.
+- Follow the prompts to select your Discord installation path.
+- If Discord is installed in a custom location, you can pass it explicitly:
+  ```bash
+  node scripts/runInstaller.mjs -- --install --location /path/to/discord
+  ```
+
+---
+
+### Step 5 — Restart Discord
+
+Fully quit Discord (not just close the window — use the system tray icon → **Quit Discord**), then reopen it.
+
+VencordQuests is now injected! You should see the Vencord settings gear icon in the bottom-left of Discord.
+
+---
+
+### Step 6 — Enable the CompleteDiscordQuest Plugin
+
+1. Open Discord.
+2. Click the **⚙️ User Settings** gear icon (bottom-left, next to your username).
+3. In the left sidebar, scroll down and click **Vencord** → **Plugins**.
+4. Use the search bar to search for **`CompleteDiscordQuest`**.
+5. Toggle the plugin **ON** (the switch turns green/blue).
+6. A dialog may appear asking you to **Restart** Discord — click it.
+
+That's it! The plugin is now active and will automatically accept and farm quests in the background.
+
+---
+
+### Step 7 — Configure Plugin Settings (Optional)
+
+After enabling the plugin, click the **⚙️ cog icon** next to it to open its settings:
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| Accept Quests Automatically | ✅ On | Auto-accepts any available quest |
+| Show Quests Button (Top Bar) | ✅ On | Adds a quest button to the Discord top bar |
+| Show Quests Button (Settings Bar) | ❌ Off | Adds a quest button inside Vencord settings |
+| Show Quests Button Badges | ✅ On | Shows colored badge counts on the button |
+| Farm Videos | ✅ On | Auto-completes Watch Video quests |
+| Farm Play on Desktop | ✅ On | Spoofs a running game to complete Play quests |
+| Farm Stream on Desktop | ✅ On | Spoofs a stream to complete Stream quests |
+| Farm Play Activity | ✅ On | Sends heartbeats to complete Activity quests |
+| Farm Reward Codes | ✅ On | Farms quests that give reward codes |
+| Farm In-Game | ✅ On | Farms quests with in-game item rewards |
+| Farm Collectibles | ✅ On | Farms quests with collectible rewards |
+| Farm Virtual Currency | ✅ On | Farms quests with virtual currency rewards |
+| Farm Fractional Premium | ✅ On | Farms quests with fractional Nitro rewards |
+
+You can toggle each one individually based on which quest types and reward types you want.
+
+---
+
+### Updating VencordQuests
+
+This fork auto-syncs with upstream Vencord **daily**. To pull the latest changes and rebuild:
+
+```bash
+git pull
+pnpm install --frozen-lockfile
+pnpm build
+pnpm inject
+```
+
+Then restart Discord.
+
+---
+
+### Uninstalling / Removing the Injection
+
+To remove VencordQuests from Discord and restore it to normal:
+
+```bash
+pnpm uninject
+```
+
+Then restart Discord. This does **not** delete your VencordQuests folder — only the Discord injection is removed.
+
+---
+
+### Troubleshooting
+
+**Discord doesn't load / shows a blank screen after injection**
+- Make sure you ran `pnpm build` successfully before `pnpm inject`.
+- Check that the `dist/` folder exists and contains `.js` files.
+- Try uninjecting (`pnpm uninject`), rebuilding, then re-injecting.
+
+**"Cannot find module" or build errors**
+- Delete `node_modules/` and re-run `pnpm install --frozen-lockfile`.
+- Make sure your Node.js version is ≥ 18: `node --version`.
+
+**CompleteDiscordQuest plugin not visible in the plugin list**
+- Make sure you built from *this* fork, not the upstream Vencord.
+- Search for "Quest" in the Vencord plugins search bar.
+
+**macOS: Installer blocked by Gatekeeper**
+```bash
+xattr -cr /tmp/VencordInstaller
+pnpm inject
+```
+
+**Linux: Discord is a Flatpak/Snap**
+- Flatpak and Snap Discord installations are **not supported** for injection.
+- Install Discord from https://discord.com/download (`.deb` or `.tar.gz`) instead.
+
+---
+
 ## Vencord Features
 
 -   Easy to install
