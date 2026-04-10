@@ -24,6 +24,16 @@ const completingQuest = new Map();
 const fakeGames = new Map();
 const fakeApplications = new Map();
 
+const CONSENT_WARNING = [
+    "Important Notice",
+    "",
+    "As of April 7th 2026, Discord has expressed their intent to crack down on automating quest completion.",
+    "",
+    "Use this plugin at your own risk, as you may get flagged by doing so.",
+    "",
+    "Press OK to keep using this plugin, or Cancel to keep automation disabled."
+].join("\n");
+
 export default definePlugin({
     name: "CompleteDiscordQuest",
     description: "A plugin that completes multiple discord quests in background simultaneously.",
@@ -74,12 +84,17 @@ export default definePlugin({
         }
     ],
     start: () => {
+        if (!ensureHasAcceptedToUsePlugin()) {
+            stopAllFarming();
+            return;
+        }
+
         QuestsStore.addChangeListener(updateQuests);
         updateQuests();
     },
     stop: () => {
         QuestsStore.removeChangeListener(updateQuests);
-        stopCompletingAll();
+        stopAllFarming();
     },
 
     renderQuestButtonTopBar() {
@@ -146,7 +161,28 @@ function isQuestEligibleForFarming(quest: QuestValue): boolean {
     });
 }
 
+function ensureHasAcceptedToUsePlugin(): boolean {
+    if (settings.store.hasAcceptedToUsePlugin === true) {
+        return true;
+    }
+
+    const accepted = window.confirm(CONSENT_WARNING);
+    settings.store.hasAcceptedToUsePlugin = accepted;
+
+    if (!accepted) {
+        console.warn("Consent not accepted. Quest completion is disabled.");
+    }
+
+    return accepted;
+}
+
 function updateQuests() {
+    if (!settings.store.hasAcceptedToUsePlugin) {
+        stopAllFarming();
+        console.warn("Consent not accepted. Skipping quest update/completion.");
+        return;
+    }
+
     availableQuests = [...QuestsStore.quests.values()];
     acceptableQuests = availableQuests.filter(x => x.userStatus?.enrolledAt == null && new Date(x.config.expiresAt).getTime() > Date.now()) || [];
     completableQuests = availableQuests.filter(x => x.userStatus?.enrolledAt && !x.userStatus?.completedAt && new Date(x.config.expiresAt).getTime() > Date.now()) || [];
@@ -192,7 +228,28 @@ function stopCompletingAll() {
     console.log("Stopped completing all quests.");
 }
 
+function stopAllFarming() {
+    stopCompletingAll();
+
+    if (fakeGames.size > 0) {
+        const removedGames = Array.from(fakeGames.values());
+        fakeGames.clear();
+        const games = RunningGameStore.getRunningGames();
+        FluxDispatcher.dispatch({ type: "RUNNING_GAMES_CHANGE", removed: removedGames, added: games, games });
+    }
+
+    if (fakeApplications.size > 0) {
+        fakeApplications.clear();
+    }
+}
+
 function completeQuest(quest: QuestValue) {
+    if (!settings.store.hasAcceptedToUsePlugin) {
+        stopAllFarming();
+        console.warn("Consent not accepted. Cannot complete quests.");
+        return;
+    }
+
     const isApp = typeof DiscordNative !== "undefined";
     if (!quest) {
         console.log("You don't have any uncompleted quests!");

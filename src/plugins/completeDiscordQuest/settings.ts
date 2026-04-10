@@ -8,6 +8,11 @@ import { definePluginSettings } from "@api/Settings";
 import { OptionType } from "@utils/types";
 
 export default definePluginSettings({
+    hasAcceptedToUsePlugin: {
+        type: OptionType.BOOLEAN,
+        description: "Required consent for running quest automation. Disable to force-stop quest farming.",
+        default: false
+    },
     acceptQuestsAutomatically: {
         type: OptionType.BOOLEAN,
         description: "Whether to accept available quests automatically.",
