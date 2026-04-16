@@ -16,7 +16,7 @@ export default definePluginSettings({
     acceptQuestsAutomatically: {
         type: OptionType.BOOLEAN,
         description: "Whether to accept available quests automatically.",
-        default: true
+        default: false
     },
     showQuestsButtonTopBar: {
         type: OptionType.BOOLEAN,
