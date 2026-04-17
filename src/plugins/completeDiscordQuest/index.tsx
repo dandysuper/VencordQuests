@@ -207,6 +207,7 @@ function updateQuests() {
 
 function acceptQuest(quest: QuestValue) {
     if (!settings.store.acceptQuestsAutomatically) return;
+    console.log("Accepting quest:", quest.config.messages.questName);
     const action: QuestAction = {
         questContent: QuestLocationMap.QUEST_HOME_DESKTOP,
         questContentCTA: "ACCEPT_QUEST",
